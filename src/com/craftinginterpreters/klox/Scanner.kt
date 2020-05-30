@@ -1,6 +1,27 @@
 package com.craftinginterpreters.klox
 
 class Scanner(val source: String) {
+    private companion object {
+        val keywords = hashMapOf<String, TokenType>(
+            "and" to TokenType.AND,
+            "class" to TokenType.CLASS,
+            "else" to TokenType.ELSE,
+            "false" to TokenType.FALSE,
+            "for" to TokenType.FOR,
+            "fun" to TokenType.FUN,
+            "if" to TokenType.IF,
+            "nil" to TokenType.NIL,
+            "or" to TokenType.OR,
+            "print" to TokenType.PRINT,
+            "return" to TokenType.RETURN,
+            "super" to TokenType.SUPER,
+            "this" to TokenType.THIS,
+            "true" to TokenType.TRUE,
+            "var" to TokenType.VAR,
+            "while" to TokenType.WHILE
+        )
+    }
+
     private val tokens = arrayListOf<Token>()
     private var start = 0
     private var current = 0
@@ -19,7 +40,7 @@ class Scanner(val source: String) {
     private fun isAtEnd() = current >= source.length
 
     private fun scanToken() {
-        when (advance()) {
+        when (val c = advance()) {
             '(' -> addToken(TokenType.LEFT_PAREN)
             ')' -> addToken(TokenType.RIGHT_PAREN)
             '{' -> addToken(TokenType.LEFT_BRACE)
@@ -44,21 +65,41 @@ class Scanner(val source: String) {
             ' ', '\r', '\t' -> {} // ignorable whitespace
             '\n' -> line++
             '"' -> addStringLiteral()
-            in '0'..'9' -> addNumericLiteral()
-            else -> Klox.error(line, "Unexpected character.")
+            else -> {
+                when {
+                    isDigit(c) -> addNumericLiteral()
+                    isAlpha(c) -> addIdentifier()
+                    else -> Klox.error(line, "Unexpected character.")
+                }
+            }
         }
+    }
+
+    private fun addIdentifier() {
+        while (isAlpha(peek())) advance()
+
+        // check for reserved word
+        addToken(
+            keywords.getOrDefault(
+                source.substring(start, current),
+                TokenType.IDENTIFIER
+            )
+        )
     }
 
     private fun addNumericLiteral() {
         while (peek() in '0'..'9') advance()
 
         // check for fractional part
-        if (peek() == '.' && peekpeek() in '0'..'9') {
+        if (peek() == '.' && isDigit(peekpeek())) {
             advance() // consume decimal point
-            while (peek() in '0'..'9') advance()
+            while (isDigit(peek())) advance()
         }
 
-        addToken(TokenType.NUMBER, source.substring(start, current).toDouble())
+        addToken(
+            TokenType.NUMBER,
+            source.substring(start, current).toDouble()
+        )
     }
 
     private fun addStringLiteral() {
@@ -77,7 +118,18 @@ class Scanner(val source: String) {
         }
 
         advance()
-        addToken(TokenType.STRING, source.substring(start + 1, current - 1))
+        addToken(
+            TokenType.STRING,
+            source.substring(start + 1, current - 1)
+        )
+    }
+
+    private fun isAlpha(c: Char): Boolean {
+        return c in 'a'..'z' || c in 'A'..'Z' || c == '_'
+    }
+
+    private fun isDigit(c: Char): Boolean {
+        return c in '0'..'9'
     }
 
     private fun matchNext(expected: Char): Boolean {
