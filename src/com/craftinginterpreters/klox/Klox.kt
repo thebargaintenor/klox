@@ -6,6 +6,7 @@ import java.io.InputStreamReader
 import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.Paths
+import kotlin.math.exp
 import kotlin.system.exitProcess
 
 object Klox {
@@ -50,9 +51,14 @@ object Klox {
     }
 
     private fun run(source: String) {
-        Scanner(source)
-            .scanTokens()
-            .forEach { println(it) }
+        val tokens = Scanner(source).scanTokens()
+        val parser = Parser(tokens)
+        val expression = parser.maybeParse()
+
+        // refine from nullable as it only results in error case
+        if (hadError || expression == null) return
+
+        print(AstPrinter().print(expression))
     }
 
     fun error(line: Int, message: String) {
@@ -62,5 +68,12 @@ object Klox {
     private fun report(line: Int, where: String, message: String) {
         println("[Line $line] Error $where: $message")
         hadError = true
+    }
+
+    fun error(token: Token, message: String) {
+        when (token.type) {
+            TokenType.EOF -> report(token.line, " at end", message)
+            else -> report(token.line, " at '${token.lexeme}'", message)
+        }
     }
 }
